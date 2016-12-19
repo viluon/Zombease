@@ -1,6 +1,8 @@
 
 -- [SublimeLinter luacheck-globals:term,colours,textutils,keys,blittle,shell,sleep,fs]
 
+-- Zombease - a top-down zombie survival shooter by viluon
+
 if not fs.exists "blittle" then shell.run "pastebin get ujchRSnU blittle" end
 os.loadAPI "blittle"
 local blittle = blittle
@@ -19,7 +21,7 @@ local	redraw, shade, update, ease_in_quad,
 		ease_out_quad, change_menu, parse_model,
 		draw_model, save_settings, align_number
 
-local version = "0.1.1-beta"
+local version = "0.1.2-beta"
 local root = "/"
 
 local colours = colours
@@ -65,6 +67,7 @@ local symbols = {
 local settings = {
 	show_version = true;
 	snowflakes = 0;
+	limit_FPS = true;
 }
 
 local settings_file = io.open( root .. "saves/settings.tbl", "r" )
@@ -135,6 +138,14 @@ local menu = {
 			end;
 		};
 		[ 2 ] = {
+			label = settings.limit_FPS and "FPS limit: on" or "FPS limit: off";
+			fn = function( self )
+				settings.limit_FPS = not settings.limit_FPS
+				self.label = settings.limit_FPS and "FPS limit: on" or "FPS limit: off";
+				save_settings()
+			end;
+		};
+		[ 3 ] = {
 			label = "Back";
 			fn = function( _ )
 				change_menu( "main" )
@@ -164,6 +175,7 @@ local models = {}
 local weapons = {}
 local weapon_kinds = {}
 local bullet_kinds = {}
+local attachment_kinds = {}
 
 local last_spawn = -1
 
@@ -559,6 +571,31 @@ for _, name in ipairs( fs.list( bullet_dir ) ) do
 	end
 end
 
+--- Load attachment kinds
+local attachments_dir = root .. "assets/attachments/"
+for _, name in ipairs( fs.list( attachments_dir ) ) do
+	local f = io.open( attachments_dir .. name, "r" )
+
+	name = name:gsub( "%.tbl", "" )
+
+	if f then
+		local contents = f:read( "*a" )
+		f:close()
+
+		local fn = loadstring( contents, name )
+		if fn then
+			setfenv( fn, { colours = colours; [ "colors" ] = colours } )
+			local ok, result = pcall( fn )
+
+			if ok then
+				attachment_kinds[ name ] = result
+			else
+				error( "Loading asset " .. attachments_dir .. name .. " failed:\n\t" .. result )
+			end
+		end
+	end
+end
+
 --- Load player state
 local save_file = io.open( root .. "saves/unnamed.tbl", "r" )
 if save_file then
@@ -570,7 +607,7 @@ if save_file then
 		-- Link the items to their kinds
 		for i, item in ipairs( inventory.weapons ) do
 			for name, weapon in pairs( weapons ) do
-				if name == item then
+				if name == item[ 1 ] then
 					inventory.weapons[ i ] = weapon
 					break
 				end
@@ -668,10 +705,12 @@ while running do
 		last_settings_save = now
 	end
 
-	update( dt )
-	redraw()
+	if not settings.limit_FPS or dt ~= 0 then
+		update( dt )
+		redraw()
 
-	last_time = now
+		last_time = now
+	end
 end
 
 queue "clean_up"
@@ -690,5 +729,12 @@ end
 sleep( 0.1 )
 
 if launch then
-	return shell.run( "main.lua" )
+	local f = io.open( root .. "main.lua", "r" )
+	local contents = f:read( "*a" )
+	f:close()
+
+	local fn = loadstring( contents, root .. "main.lua" )
+	setfenv( fn, _G )
+
+	return fn( settings )
 end

@@ -1,14 +1,22 @@
 
 -- [SublimeLinter luacheck-globals:term,colours,textutils,keys,fs]
 
---TODO: Weapon drops - super important
---TODO: Armoury
+-- Zombease - a top-down zombie survival shooter by viluon
+
 --TODO: Melee/ranged/knockback resistance
 
 -- Imports
 local bump = require "bump"
 local buffer = require "desktox.buffer"
 local round = require( "desktox.utils" ).round
+
+-- Passed from launcher (menu.lua)
+local args = { ... }
+local settings = args[ 1 ]
+
+if type( settings ) ~= "table" then
+	error( "Please run the game using menu.lua and ensure that you have the latest version." )
+end
 
 -- Localisation
 local textutils = textutils
@@ -43,6 +51,8 @@ local MAX_ZOMBIES = 30
 --- Under what amount of bullets left in the clip should the counter change colour
 --TODO: This could be based on the weapon's RPS
 local BULLETS_LEFT_WARNING = 2
+
+local framerate_cap = settings.limit_FPS
 
 -- Data
 local now = -1
@@ -136,7 +146,7 @@ local player = {
 	-- New save inventory (what you begin with)
 	inventory = {
 		ammunition = {
-			
+			generic = 4;
 		};
 
 		weapons = {
@@ -175,48 +185,32 @@ for _, name in ipairs( fs.list( bullet_dir ) ) do
 	end
 end
 
-local attachment_kinds = {
-	[ 1 ] = {
-		name = "Basic sight";
-		slot = "sight";
-		description = "Improves accuracy by 20%.";
+local attachment_kinds = {}
 
-		apply = function( weapon )
-			weapon.accuracy = weapon.accuracy + 0.2
-		end;
-	};
-	[ 2 ] = {
-		name = "Grip";
-		slot = "grip";
-		description = "Improves accuracy by 30%.";
+--- Load attachment kinds
+local attachments_dir = root .. "assets/attachments/"
+for _, name in ipairs( fs.list( attachments_dir ) ) do
+	local f = io.open( attachments_dir .. name, "r" )
 
-		apply = function( weapon )
-			weapon.accuracy = weapon.accuracy + 0.3
-		end;
-	};
-	[ 3 ] = {
-		name = "Semi-auto reload aid";
-		slot = "tactical";
-		description = "Lowers the reload delay by 0.8 seconds.";
+	name = name:gsub( "%.tbl", "" )
 
-		apply = function( weapon )
-			weapon.reload_delay = weapon.reload_delay - 0.8
-		end;
-	};
-	[ 4 ] = {
-		name = "Extended pistol magazine";
-		slot = "magazine";
-		description = "A larger pistol magazine, holds up to 12 bullets.";
+	if f then
+		local contents = f:read( "*a" )
+		f:close()
 
-		filter = function( weapon )
-			return weapon.kind.name == "pistol"
-		end;
+		local fn = loadstring( contents, name )
+		if fn then
+			setfenv( fn, { colours = colours; [ "colors" ] = colours } )
+			local ok, result = pcall( fn )
 
-		apply = function( weapon )
-			weapon.clip_size = 12
-		end;
-	};
-}
+			if ok then
+				attachment_kinds[ name ] = result
+			else
+				error( "Loading asset " .. attachments_dir .. name .. " failed:\n\t" .. result )
+			end
+		end
+	end
+end
 
 player.x = 10
 player.y = 6
@@ -241,7 +235,7 @@ local zombie_kinds = {
 			-- Pistol ammo
 			{ probability = 0.45; item = 1; };
 			-- Pistol weapon
-			{ probability = 0.2;  item = 4; };
+			{ probability = 0.33;  item = 4; };
 		};
 	};
 	[ 2 ] = {
@@ -726,7 +720,6 @@ function update( dt )
 					should_die = true
 
 				else
-
 					if len > 0 then
 						for ii = 1, len do
 							local other = collisions[ ii ].other
@@ -750,7 +743,6 @@ function update( dt )
 							end
 						end
 					end
-
 				end
 
 				if should_die then
@@ -1326,6 +1318,12 @@ while running do
 		end
 	end
 
+	if last_fps_reset ~= now and now - last_fps_reset >= FPS_RESET_INTERVAL then
+		last_fps = round( frames / FPS_RESET_INTERVAL )
+		last_fps_reset = now
+		frames = 0
+	end
+
 	-- Player movement
 	if player.movement_speed < now - player.last_moved and ( held[ keys.w ] or held[ keys.s ] or held[ keys.a ] or held[ keys.d ] ) then
 		move_player(
@@ -1336,17 +1334,13 @@ while running do
 		player.last_moved = now
 	end
 
-	if now - last_fps_reset >= FPS_RESET_INTERVAL then
-		last_fps = round( frames / FPS_RESET_INTERVAL )
-		last_fps_reset = now
-		frames = 0
+	if not framerate_cap or dt ~= 0 then
+		update( dt )
+		redraw()
+
+		last_time = now
+		frames = frames + 1
 	end
-
-	update( dt )
-	redraw()
-
-	last_time = now
-	frames = frames + 1
 end
 
 save_state()

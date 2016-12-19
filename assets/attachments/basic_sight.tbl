@@ -1,0 +1,10 @@
+
+return {
+	name = "Basic sight";
+	slot = "sight";
+	description = "Improves accuracy by 20%.";
+
+	apply = function( weapon )
+		weapon.accuracy = weapon.accuracy + 0.2
+	end;
+}

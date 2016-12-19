@@ -1,0 +1,10 @@
+
+return {
+	name = "Grip";
+	slot = "grip";
+	description = "Improves accuracy by 30%.";
+
+	apply = function( weapon )
+		weapon.accuracy = weapon.accuracy + 0.3
+	end;
+}

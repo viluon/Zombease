@@ -1,0 +1,10 @@
+
+return {
+	name = "Semi-auto reload aid";
+	slot = "tactical";
+	description = "Lowers the reload delay by 0.8 seconds.";
+
+	apply = function( weapon )
+		weapon.reload_delay = weapon.reload_delay - 0.8
+	end;
+}

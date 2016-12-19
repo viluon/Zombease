@@ -1,0 +1,14 @@
+
+return {
+	name = "Extended pistol magazine";
+	slot = "magazine";
+	description = "A larger pistol magazine, holds up to 12 bullets.";
+
+	filter = function( weapon )
+		return weapon.kind.name == "pistol"
+	end;
+
+	apply = function( weapon )
+		weapon.clip_size = 12
+	end;
+}
