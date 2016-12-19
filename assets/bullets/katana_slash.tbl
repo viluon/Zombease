@@ -1,0 +1,18 @@
+
+return {
+	name = "katana_slash";
+
+	melee = true;
+
+	text = "\127";
+	bg = -1;
+	fg = colours.lightGrey;
+
+	knockback_highlight = -2;
+
+	life = 0;
+
+	speed = 0.2;
+	damage = 15;
+	knockback = 1.05;
+}

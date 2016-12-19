@@ -1,0 +1,16 @@
+
+return {
+	name = "assault";
+
+	text = "*";
+	bg = -2;
+	fg = colours.yellow;
+
+	knockback_highlight = colours.cyan;
+
+	life = 2.2;
+
+	speed = 24;
+	damage = 9;
+	knockback = 1.1;
+}

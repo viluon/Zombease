@@ -1,0 +1,35 @@
+
+return {
+	name  = "katana";
+	model = "katana.mdl";
+
+	-- Icon
+	text = "/";
+
+	-- Swing animation
+	anim = {
+		[ 1 ] = {
+			text = "|";
+			fg = colours.white;
+			bg = -1;
+		};
+		[ 2 ] = {
+			text = "/";
+			fg = colours.white;
+			bg = -1;
+		};
+		[ 3 ] = {
+			text = "-";
+			fg = colours.white;
+			bg = -1;
+		};
+	};
+
+	melee = true;
+	cooldown = 0.2;
+
+	bullet_kind = "katana_slash";
+	damage_multiplier = 1;
+
+	accuracy = 1;
+}

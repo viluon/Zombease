@@ -1,0 +1,30 @@
+
+return {
+	name  = "fists";
+	model = "fist.mdl";
+
+	-- Icon
+	text = "\137";
+
+	-- Swing animation
+	anim = {
+		[ 1 ] = {
+			text = "\137";
+			fg = colours.pink;
+			bg = -1;
+		};
+		[ 2 ] = {
+			text = "\134";
+			fg = colours.pink;
+			bg = -1;
+		};
+	};
+
+	melee = true;
+	cooldown = 0.5;
+
+	bullet_kind = "fist_punch";
+	damage_multiplier = 1;
+
+	accuracy = 1;
+}

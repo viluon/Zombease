@@ -1,0 +1,17 @@
+
+return {
+	name  = "pistol";
+	model = "pistol.mdl";
+
+	-- Icon
+	text = "\156";
+
+	clip_size = 8;
+	cooldown = 0.4;
+	reload_delay = 2.5;
+
+	bullet_kind = "generic";
+	damage_multiplier = 1;
+
+	accuracy = 0.88;
+}

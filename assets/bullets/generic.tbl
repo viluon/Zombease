@@ -1,0 +1,15 @@
+
+return {
+	name = "generic";
+
+	text_horizontal = "-";
+	text_vertical = "|";
+	bg = -2;
+	fg = colours.yellow;
+
+	life = 2.5;
+
+	speed = 18;
+	damage = 12;
+	knockback = 0;
+}

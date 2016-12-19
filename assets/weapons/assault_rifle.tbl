@@ -1,0 +1,17 @@
+
+return {
+	name  = "assault_rifle";
+	model = "assault_rifle.mdl";
+
+	-- Icon
+	text = "\187";
+
+	clip_size = 30;
+	cooldown = 0.05;
+	reload_delay = 3.0;
+
+	bullet_kind = "assault";
+	damage_multiplier = 1;
+
+	accuracy = 0.3;
+}
