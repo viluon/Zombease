@@ -607,7 +607,7 @@ if save_file then
 		-- Link the items to their kinds
 		for i, item in ipairs( inventory.weapons ) do
 			for name, weapon in pairs( weapons ) do
-				if name == item[ 1 ] then
+				if name == item then
 					inventory.weapons[ i ] = weapon
 					break
 				end
