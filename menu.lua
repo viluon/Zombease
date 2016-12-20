@@ -29,7 +29,7 @@ local	redraw, shade, update, ease_in_quad,
 		draw_model, save_settings, align_number,
 		get_paste
 
-local version = "0.1.3-beta"
+local version = "0.1.4-beta"
 local root = "/"
 
 local colours = colours
@@ -101,6 +101,7 @@ local settings = {
 	show_version = true;
 	snowflakes = 0;
 	limit_FPS = true;
+	difficulty = 2;
 }
 
 local settings_file = io.open( root .. "saves/settings.tbl", "r" )
@@ -115,7 +116,8 @@ if settings_file then
 	settings_file:close()
 end
 
-local menu = {
+local menu
+menu = {
 	main = {
 		[ 1 ] = {
 			label = "Play";
@@ -135,7 +137,8 @@ local menu = {
 				change_menu( "settings" )
 			end;
 		};
-		[ 4 ] = {
+		[ 4 ] = {};
+		[ 5 ] = {
 			label = "Quit";
 			fn = function( _ )
 				running = false
@@ -151,7 +154,8 @@ local menu = {
 				running = false
 			end;
 		};
-		[ 2 ] = {
+		[ 2 ] = {};
+		[ 3 ] = {
 			label = "Back";
 			fn = function( _ )
 				change_menu( "main" )
@@ -163,6 +167,12 @@ local menu = {
 
 	settings = {
 		[ 1 ] = {
+			label = "Difficulty";
+			fn = function( _ )
+				change_menu( "settings_difficulty" )
+			end;
+		};
+		[ 2 ] = {
 			label = settings.show_version and "Version: shown" or "Version: hidden";
 			fn = function( self )
 				settings.show_version = not settings.show_version
@@ -170,7 +180,7 @@ local menu = {
 				save_settings()
 			end;
 		};
-		[ 2 ] = {
+		[ 3 ] = {
 			label = settings.limit_FPS and "FPS limit: on" or "FPS limit: off";
 			fn = function( self )
 				settings.limit_FPS = not settings.limit_FPS
@@ -178,10 +188,63 @@ local menu = {
 				save_settings()
 			end;
 		};
-		[ 3 ] = {
+		[ 4 ] = {};
+		[ 5 ] = {
 			label = "Back";
 			fn = function( _ )
 				change_menu( "main" )
+			end;
+		};
+	};
+
+	settings_difficulty = {
+		[ 1 ] = {
+			label = ( settings.difficulty == 1 and ">" or " " ) .. " Easy";
+			unselected = "  Easy";
+
+			fn = function( self )
+				settings.difficulty = 1
+
+				for i = 1, #menu.settings_difficulty - 2 do
+					menu.settings_difficulty[ i ].label = menu.settings_difficulty[ i ].unselected
+				end
+
+				self.label = "> Easy"
+			end;
+		};
+		[ 2 ] = {
+			label = ( settings.difficulty == 2 and ">" or " " ) .. " Normal";
+			unselected = "  Normal";
+
+			fn = function( self )
+				settings.difficulty = 2
+
+				for i = 1, #menu.settings_difficulty - 2 do
+					menu.settings_difficulty[ i ].label = menu.settings_difficulty[ i ].unselected
+				end
+
+				self.label = "> Normal"
+			end;
+		};
+		[ 3 ] = {
+			label = ( settings.difficulty == 3 and ">" or " " ) .. " Hard";
+			unselected = "  Hard";
+
+			fn = function( self )
+				settings.difficulty = 3
+
+				for i = 1, #menu.settings_difficulty - 2 do
+					menu.settings_difficulty[ i ].label = menu.settings_difficulty[ i ].unselected
+				end
+
+				self.label = "> Hard"
+			end;
+		};
+		[ 4 ] = {};
+		[ 5 ] = {
+			label = "Back";
+			fn = function( _ )
+				change_menu( "settings" )
 			end;
 		};
 	};
@@ -353,12 +416,14 @@ function redraw()
 	overlay_buf:clear( -1, -2, "\0" )
 
 	-- Draw the menu items
-	for i, item in ipairs( menu[ menu_state ] ) do
-		local label = item.label
-		local start = round( menu_label_start )
-		local str   = label:sub( start, min( #label, menu_label_end ) )
+	for i, item in pairs( menu[ menu_state ] ) do
+		if item.label then
+			local label = item.label
+			local start = round( menu_label_start )
+			local str   = label:sub( start, min( #label, menu_label_end ) )
 
-		main_buf:write( menu_pos_x + start, menu_pos_y + i, str )
+			main_buf:write( menu_pos_x + start, menu_pos_y + i, str )
+		end
 	end
 
 	if settings.show_version then
@@ -561,12 +626,19 @@ for i = 1, #args do
 		end
 	end
 end
-
---- Display the Yellowave signature (either variation #7 or #1)
 if not arguments[ "no-intro" ] then
+	--- Display the Yellowave signature
+	--  (either variation #7, #1, or, if specified, the one set by the command line arg -yw)
 	term.redirect( wave_win )
 
-	shell.run( "yellowave.lua", random() > 0.25 and 7 or 1 )
+	local variation
+	if type( arguments.yw ) == "table" and arguments.yw[ 1 ] then
+		variation = arguments.yw[ 1 ]
+	else
+		variation = random() > 0.25 and 7 or 1
+	end
+
+	shell.run( "yellowave.lua", variation )
 
 	sleep( 1 )
 
@@ -703,6 +775,11 @@ if save_file then
 end
 
 --- Run the main GUI loop
+if arguments[ "quick-launch" ] then
+	running = false
+	launch = true
+end
+
 local end_queued
 now = clock()
 local last_time = now
@@ -758,7 +835,7 @@ while running do
 		elseif x >= menu_pos_x and x <= menu_pos_x + MENU_WIDTH and y >= menu_pos_y and y <= menu_pos_y + #menu[ menu_state ] then
 			local index = y - 5
 
-			if  menu[ menu_state ][ index ] then
+			if  menu[ menu_state ][ index ] and menu[ menu_state ][ index ].fn then
 				menu[ menu_state ][ index ].fn( menu[ menu_state ][ index ] )
 			end
 
@@ -781,7 +858,7 @@ while running do
 
 	elseif ev[ 1 ] == "key" then
 		if ev[ 2 ] == keys.enter then
-			if  menu[ menu_state ][ 1 ] then
+			if  menu[ menu_state ][ 1 ] and menu[ menu_state ][ 1 ].fn then
 				menu[ menu_state ][ 1 ].fn( menu[ menu_state ][ 1 ] )
 			end
 		end
@@ -804,17 +881,19 @@ end
 queue "clean_up"
 os.pullEvent "clean_up"
 
-save_settings()
+if not arguments[ "quick-launch" ] then
+	save_settings()
 
-for i = 0, 6 do
-	fade_level = i
+	for i = 0, 6 do
+		fade_level = i
 
-	sleep ( 0 )
-	update( 0.15 )
-	redraw()
+		sleep ( 0 )
+		update( 0.15 )
+		redraw()
+	end
+
+	sleep( 0.1 )
 end
-
-sleep( 0.1 )
 
 if launch then
 	local f = io.open( root .. "main.lua", "r" )
@@ -832,7 +911,7 @@ elseif perform_update then
 	local fn = loadstring( get_paste "SNnkfxnx", "installer" )
 	setfenv( fn, getfenv() )
 
-	fn( "update", "no-msg" )
+	fn( "dont", "update", "no-msg" )
 
 	return shell.run( root .. "menu.lua", "--no-intro", "--menu", menu_state )
 end

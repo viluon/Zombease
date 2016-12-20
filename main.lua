@@ -160,6 +160,16 @@ local player = {
 	};
 }
 
+if settings.difficulty == 1 then
+	player.reload_time_multiplier = 2 / 3
+
+elseif settings.difficulty == 2 then
+	player.reload_time_multiplier = 1
+
+elseif settings.difficulty == 3 then
+	player.reload_time_multiplier = 1.5
+end
+
 --- Load bullet kinds
 local bullet_dir = root .. "assets/bullets/"
 for _, name in ipairs( fs.list( bullet_dir ) ) do
@@ -216,6 +226,18 @@ end
 player.x = 10
 player.y = 6
 
+local zombie_damage_multiplier
+
+if settings.difficulty == 1 then
+	zombie_damage_multiplier = 2 / 3
+
+elseif settings.difficulty == 2 then
+	zombie_damage_multiplier = 1
+
+elseif settings.difficulty == 3 then
+	zombie_damage_multiplier = 1.5
+end
+
 local zombie_kinds = {
 	[ 1 ] = {
 		name = "generic";
@@ -226,7 +248,7 @@ local zombie_kinds = {
 
 		-- How much time (in seconds) until the zombie can move
 		movement_speed = 0.6;
-		damage = 8;
+		damage = 8 * zombie_damage_multiplier;
 		health = 20;
 
 		-- Since which wave can the kind spawn
@@ -247,14 +269,14 @@ local zombie_kinds = {
 		fg = colours.lime;
 
 		movement_speed = 0.25;
-		damage = 4;
+		damage = 4 * zombie_damage_multiplier;
 		health = 12;
 
 		difficulty = 2;
 
 		drop = {
-			{ probability = 0.2;  item = 3; };
 			{ probability = 0.05; item = 1; };
+			{ probability = 0.2;  item = 3; };
 		};
 	};
 	[ 3 ] = {
@@ -264,8 +286,8 @@ local zombie_kinds = {
 		bg = colours.grey;
 		fg = colours.lime;
 
-		movement_speed = 0.95;
-		damage = 26;
+		movement_speed = settings.difficulty == 3 and 0.6 or 0.95;
+		damage = 26 * zombie_damage_multiplier;
 		health = 55;
 
 		difficulty = 3;
@@ -283,7 +305,7 @@ local zombie_kinds = {
 		fg = colours.black;
 
 		movement_speed = 0.5;
-		damage = 10;
+		damage = 10 * zombie_damage_multiplier;
 		health = 40;
 
 		difficulty = 5;
@@ -602,6 +624,7 @@ function redraw()
 		overlay_buf:write( round( w / 2 - #text / 2 ), round( h / 2 ) - 4, text, colours.black, colours.white )
 
 		local stats = ""
+			.. " Difficulty: " .. settings.difficulty .. " \n"
 			.. " Zombies killed: " .. kills .. " (" .. round( kills / ( zombies_spawned + 0.000001 ) * 100 ) .. "%) \n"
 			.. " Time alive: " .. time_str .. " \n"
 			.. " Waves survived: " .. wave_count - 1 .. " \n"
@@ -686,7 +709,7 @@ function update( dt )
 					kills = kills + 1
 				end
 
-				if now - object.last_moved >= object.kind.movement_speed then
+				if now - object.last_moved >= object.movement_speed then
 					-- Move the zombie toward the player
 					local new_x, new_y, collisions, len = world:move(
 						object,
@@ -1117,7 +1140,10 @@ function spawn_zombie( x, y, kind )
 
 		kind = kind;
 		text = kind.text;
+
 		last_moved = -1;
+		movement_speed = kind.movement_speed + ( -0.5 + random() ) / 10;
+
 		health = kind.health;
 		damage = kind.damage;
 	}
