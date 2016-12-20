@@ -1,5 +1,5 @@
 
--- [SublimeLinter luacheck-globals:term,colours,textutils,keys,blittle,shell,sleep,fs]
+-- [SublimeLinter luacheck-globals:term,colours,textutils,keys,blittle,shell,sleep,fs,http]
 
 -- Zombease - a top-down zombie survival shooter by viluon
 
@@ -26,7 +26,8 @@ local MENU_WIDTH = 15
 
 local	redraw, shade, update, ease_in_quad,
 		ease_out_quad, change_menu, parse_model,
-		draw_model, save_settings, align_number
+		draw_model, save_settings, align_number,
+		get_paste
 
 local version = "0.1.3-beta"
 local root = "/"
@@ -51,6 +52,7 @@ local max = math.max
 local now
 local running = true
 local launch = false
+local perform_update = false
 
 if not fs.exists( root .. "tmp/logo_dec" ) then
 	-- Decode the logo
@@ -243,6 +245,23 @@ function ease_out_quad( time, begin, change, duration )
 
 	time = time / duration
 	return change * time ^ 1.5 + begin
+end
+
+--- Get the contents of a Pastebin paste.
+-- @param code description
+-- @return The paste contents or nil plus an error message
+function get_paste( code )
+	local response, err = http.get(
+		"http://pastebin.com/raw/" .. textutils.urlEncode( code )
+	)
+
+	if response then
+		local contents = response.readAll()
+		response.close()
+		return contents
+	end
+
+	return nil, err
 end
 
 --- Load a model from its textual description.
@@ -744,8 +763,8 @@ while running do
 			end
 
 		elseif settings.show_version and y == h - 1 and x >= w - #version then
-			shell.run "pastebin run snnkFXNX"
-			return shell.run( root .. "menu.lua", "--no-intro", "--menu", menu_state )
+			running = false
+			perform_update = true
 		end
 
 	elseif ev[ 1 ] == "mouse_scroll" then
@@ -806,4 +825,12 @@ if launch then
 	setfenv( fn, _G )
 
 	return fn( settings )
+
+elseif perform_update then
+	term.setCursorPos( 1, 1 )
+
+	local fn = load( get_paste "SNnkfxnx", "installer", "t", _G )
+	fn( "update", "no-msg" )
+
+	return shell.run( root .. "menu.lua", "--no-intro", "--menu", menu_state )
 end
