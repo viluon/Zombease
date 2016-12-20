@@ -946,7 +946,7 @@ elseif perform_update then
 	local fn = loadstring( get_paste "SNnkfxnx", "installer" )
 	setfenv( fn, getfenv() )
 
-	fn( "dont", "update", "no-msg" )
+	fn( "update", "no-msg", fs.exists( root .. ".noupdate" ) and "dont" or "do" )
 
 	return shell.run( root .. "menu.lua", "--no-intro", "--menu", menu_state )
 end
