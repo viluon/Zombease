@@ -5,18 +5,19 @@
 
 --TODO: Melee/ranged/knockback resistance
 
--- Imports
-local bump = require "utils.bump"
-local buffer = require "desktox.buffer"
-local round = require( "desktox.utils" ).round
-
 -- Passed from launcher (menu.lua)
 local args = { ... }
 local settings = args[ 1 ]
 
-if type( settings ) ~= "table" then
-	error( "Please run the game using menu.lua and ensure that you have the latest version." )
+if not require or type( settings ) ~= "table" then
+	print( "wiLL kIll you But RUn mEnU.LUa FiRst" )
+	error( "    -- nOT thEmm zOMbiez", 0 )
 end
+
+-- Imports
+local bump = require "utils.bump"
+local buffer = require "desktox.buffer"
+local round = require( "desktox.utils" ).round
 
 -- Localisation
 local textutils = textutils

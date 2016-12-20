@@ -3,6 +3,10 @@
 
 -- Zombease - a top-down zombie survival shooter by viluon
 
+if not term.isColour or not term.isColour() then
+	error( "Zombease requires an advanced computer!", 0 )
+end
+
 if not fs.exists "blittle" then shell.run "pastebin get ujchRSnU blittle" end
 os.loadAPI "blittle"
 local blittle = blittle
