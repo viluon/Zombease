@@ -829,7 +829,9 @@ if launch then
 elseif perform_update then
 	term.setCursorPos( 1, 1 )
 
-	local fn = load( get_paste "SNnkfxnx", "installer", "t", _G )
+	local fn = loadstring( get_paste "SNnkfxnx", "installer" )
+	setfenv( fn, getfenv() )
+
 	fn( "update", "no-msg" )
 
 	return shell.run( root .. "menu.lua", "--no-intro", "--menu", menu_state )
