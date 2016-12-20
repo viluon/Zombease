@@ -19,6 +19,15 @@ local base64 = require "utils.base64"
 local buffer = require "desktox.buffer"
 local round  = require( "desktox.utils" ).round
 
+-- How many seconds between wind howls
+local WIND_HOWL_PERIOD = 20
+-- How long should one howl last
+local WIND_HOWL_DURATION = 5
+-- How long should the wind be speeding up/slowing down
+local WIND_HOWL_TRANSITION = 2
+local WIND_MAX_SPEED = -35
+local WIND_MIN_SPEED = -8
+
 local SNOWFLAKE_SPAWN_RATE = 0.05
 local SETTINGS_SAVE_PERIOD = 5
 local MENU_ANIM_DURATION = 0.5
@@ -92,6 +101,9 @@ wave_win.setVisible( true )
 
 local stuff = ""
 
+local wind_howling = false
+local last_wind_howl_start = clock()
+local wind_speed = WIND_MIN_SPEED
 local particles = {}
 local symbols = {
 	"\127", "*",
@@ -533,14 +545,37 @@ end
 -- @param dt Time since last update
 -- @return nil
 function update( dt )
+	-- Calculate wind speed
+	local diff = now - last_wind_howl_start
+
+	--stuff = "" .. wind_speed
+
+	if diff > WIND_HOWL_PERIOD then
+		last_wind_howl_start = now
+		wind_howling = true
+		diff = 0
+	end
+
+	if wind_howling then
+		if diff < WIND_HOWL_DURATION then
+			wind_speed = ease_out_quad( diff, WIND_MIN_SPEED, WIND_MAX_SPEED - WIND_MIN_SPEED, WIND_HOWL_TRANSITION )
+
+		elseif diff < WIND_HOWL_DURATION + WIND_HOWL_TRANSITION then
+			wind_speed = ease_in_quad ( diff - WIND_HOWL_DURATION, WIND_MAX_SPEED, WIND_MIN_SPEED - WIND_MAX_SPEED, WIND_HOWL_TRANSITION )
+
+		else
+			wind_howling = false
+		end
+	end
+
 	-- Spawn new particles
 	if now - last_spawn > SNOWFLAKE_SPAWN_RATE then
 		for _ = 1, 2 do
 			particles[ #particles + 1 ] = {
-				x = random( ( 1 / 6 ) * w, ( 7 / 6 ) * w );
+				x = random( 2 - wind_speed / 2, w - wind_speed + WIND_MIN_SPEED + 2 );
 				y = -1;
 
-				x_speed = random() > 0.1 and -12 or -8;
+				--x_speed = random() > 0.1 and -12 or -8;
 				y_speed = 18;
 
 				symbol  = symbols[ random( 1, #symbols ) ];
@@ -559,7 +594,7 @@ function update( dt )
 	for i = 1, #particles do
 		local particle = particles[ i ]
 
-		particle.x = particle.x + particle.x_speed * dt
+		particle.x = particle.x + wind_speed * dt
 		particle.y = particle.y + particle.y_speed * dt
 
 		if particle.x < 0 or particle.x >= ( 4 / 3 ) * w or particle.y < -1 or particle.y >= h then
