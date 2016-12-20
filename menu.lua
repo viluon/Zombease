@@ -9,6 +9,7 @@ local blittle = blittle
 
 if not require then shell.run "/desktox/init.lua" end
 
+local base64 = require "utils.base64"
 local buffer = require "desktox.buffer"
 local round  = require( "desktox.utils" ).round
 
@@ -44,7 +45,31 @@ local max = math.max
 local now
 local running = true
 local launch = false
-local logo = blittle.load( "/assets/little_images/logo_mix" )
+
+if not fs.exists( root .. "tmp/logo_dec" ) then
+	-- Decode the logo
+	local logo_enc = io.open( root .. "assets/little_images/logo_mix.b64", "r" )
+	local logo_data = logo_enc:read( "*a" )
+	logo_enc:close()
+
+	local logo_dec = io.open( root .. "tmp/logo_dec", "wb" )
+	local data = base64.decode( logo_data )
+
+	local x, y = term.getCursorPos()
+	for i = 1, #data do
+		logo_dec:write( data:sub( i, i ):byte() )
+		term.setCursorPos( x, y )
+		term.write( round( 100 * i / #data ) .. "%" )
+
+		if i % 16 == 0 then
+			sleep( 0 )
+		end
+	end
+
+	logo_dec:close()
+end
+
+local logo = blittle.load( root .. "tmp/logo_dec" )
 
 local main_win = term.current()
 

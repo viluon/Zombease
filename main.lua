@@ -6,7 +6,7 @@
 --TODO: Melee/ranged/knockback resistance
 
 -- Imports
-local bump = require "bump"
+local bump = require "utils.bump"
 local buffer = require "desktox.buffer"
 local round = require( "desktox.utils" ).round
 
