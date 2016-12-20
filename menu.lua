@@ -9,6 +9,8 @@ local blittle = blittle
 
 if not require then shell.run "/desktox/init.lua" end
 
+local args = { ... }
+
 local base64 = require "utils.base64"
 local buffer = require "desktox.buffer"
 local round  = require( "desktox.utils" ).round
@@ -22,7 +24,7 @@ local	redraw, shade, update, ease_in_quad,
 		ease_out_quad, change_menu, parse_model,
 		draw_model, save_settings, align_number
 
-local version = "0.1.2-beta"
+local version = "0.1.3-beta"
 local root = "/"
 
 local colours = colours
@@ -75,7 +77,7 @@ local main_win = term.current()
 
 local w, h = main_win.getSize()
 
-local main_buf    = buffer.new( 0, 0, w, h )
+local main_buf    = buffer.new( 0, 0, w, h, nil, colours.black )
 local overlay_buf = buffer.new( 0, 0, w, h, main_buf, -1, -2, "\0" )
 local armoury_buf = buffer.new( 0, logo.height, w, h - logo.height, main_buf )
 
@@ -514,23 +516,57 @@ function update( dt )
 end
 
 -- Execution code
+--- Process commandline arguments
+local last_setter
+local arguments = {}
+
+for i = 1, #args do
+	local arg = args[ i ]
+
+	if type( arg ) == "string" then
+		if arg:find( "^%-" ) then
+			last_setter = arg:gsub( "^%-%-?", "" )
+			arguments[ last_setter ] = true
+		else
+			if last_setter then
+				if type( arguments[ last_setter ] ) ~= "table" then
+					arguments[ last_setter ] = {}
+				end
+
+				arguments[ last_setter ][ #arguments[ last_setter ] + 1 ] = arg
+			end
+		end
+	end
+end
+
 --- Display the Yellowave signature (either variation #7 or #1)
-term.redirect( wave_win )
+if not arguments[ "no-intro" ] then
+	term.redirect( wave_win )
 
-shell.run( "yellowave.lua", random() > 0.25 and 7 or 1 )
+	shell.run( "yellowave.lua", random() > 0.25 and 7 or 1 )
 
-sleep( 1 )
+	sleep( 1 )
 
-for _ = 1, 3 do
-	main_buf:map( shade )
-	main_buf:render_to_window( main_win, 1, 1 )
-	sleep( 0 )
-	sleep( 0 )
+	for _ = 1, 3 do
+		main_buf:map( shade )
+		main_buf:render_to_window( main_win, 1, 1 )
+		sleep( 0 )
+		sleep( 0 )
+	end
+
+	term.redirect( main_win )
 end
 
 wave_win.setVisible( false )
 
-term.redirect( main_win )
+if arguments.menu and type( arguments.menu ) == "table" then
+	local value = arguments.menu[ 1 ]
+
+	if menu[ value ] then
+		menu_state = value
+		new_state = value
+	end
+end
 
 --- Load assets
 local model_dir = root .. "assets/models/"
@@ -702,6 +738,10 @@ while running do
 			if  menu[ menu_state ][ index ] then
 				menu[ menu_state ][ index ].fn( menu[ menu_state ][ index ] )
 			end
+
+		elseif settings.show_version and y == h - 1 and x >= w - #version then
+			shell.run "pastebin run snnkFXNX"
+			return shell.run( root .. "menu.lua", "--no-intro", "--menu", menu_state )
 		end
 
 	elseif ev[ 1 ] == "mouse_scroll" then
