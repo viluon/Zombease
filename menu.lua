@@ -42,7 +42,7 @@ local	redraw, shade, update, ease_in_quad,
 		draw_model, save_settings, align_number,
 		get_paste
 
-local version = "0.1.4-beta"
+local version = "0.2.1-beta"
 local root = "/"
 
 -- Localisation
