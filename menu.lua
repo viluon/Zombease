@@ -3,6 +3,7 @@
 
 -- Zombease - a top-down zombie survival shooter by viluon
 
+-- Environment set up
 if not term.isColour or not term.isColour() then
 	error( "Zombease requires an advanced computer!", 0 )
 end
@@ -15,15 +16,17 @@ if not require then shell.run "/desktox/init.lua" end
 
 local args = { ... }
 
+-- Dependencies
 local base64 = require "utils.base64"
 local buffer = require "desktox.buffer"
 local round  = require( "desktox.utils" ).round
 
--- How many seconds between wind howls
+-- Constants
+--- How many seconds between wind howls
 local WIND_HOWL_PERIOD = 20
--- How long should one howl last
+--- How long should one howl last
 local WIND_HOWL_DURATION = 5
--- How long should the wind be speeding up/slowing down
+--- How long should the wind be speeding up/slowing down
 local WIND_HOWL_TRANSITION = 2
 local WIND_MAX_SPEED = -35
 local WIND_MIN_SPEED = -8
@@ -33,6 +36,7 @@ local SETTINGS_SAVE_PERIOD = 5
 local MENU_ANIM_DURATION = 0.5
 local MENU_WIDTH = 15
 
+-- Function declarations
 local	redraw, shade, update, ease_in_quad,
 		ease_out_quad, change_menu, parse_model,
 		draw_model, save_settings, align_number,
@@ -41,6 +45,7 @@ local	redraw, shade, update, ease_in_quad,
 local version = "0.1.4-beta"
 local root = "/"
 
+-- Localisation
 local colours = colours
 local string = string
 local shell = shell
@@ -55,9 +60,11 @@ local clock = os.clock
 local queue = os.queueEvent
 local floor = math.floor
 local gsub = string.gsub
+local sub = string.sub
 local min = math.min
 local max = math.max
 
+-- Data
 local now
 local running = true
 local launch = false
@@ -88,6 +95,7 @@ end
 
 local logo = blittle.load( root .. "tmp/logo_dec" )
 
+--- Terminal set up
 local main_win = term.current()
 
 local w, h = main_win.getSize()
@@ -267,7 +275,7 @@ local menu_pos_y = 5
 local model_offset_x = 0
 local model_offset_y = 0
 local selected_weapon = 1
-local armoury_position = logo.height + 1
+local armoury_position = logo.height
 local armoury_back_button = {
 	label = "< Back";
 }
@@ -294,7 +302,7 @@ local fade_shader = {
 	[ colours.lightGrey ] = colours.grey;
 	[ colours.white ] = colours.lightGrey;
 	[ colours.yellow ] = colours.white;
-	[ colours.green ] = colours.lightGrey;
+	[ colours.green ] = colours.grey;
 	[ colours.red ] = colours.pink;
 	[ colours.pink ] = colours.lightGrey;
 }
@@ -355,13 +363,31 @@ function parse_model( text, name )
 		error( "Failed to load model "  .. tostring( name ) .. ": " .. model, 2 )
 	end
 
-	-- Process "unknown" colours
+	-- Process "unknown" colours (and also white background)
 	for i, str in ipairs( model.background ) do
-		model.background[ i ] = gsub( str, " ", "g" )
+		model.background[ i ] = gsub( str, " ", "g" ):gsub( "0", "g" )
 	end
 	for i, str in ipairs( model.foreground ) do
 		model.foreground[ i ] = gsub( str, " ", "h" )
 	end
+	---[[
+	-- For proper transparency, we need to check char by char
+	for i, str in ipairs( model.characters ) do
+		local res = ""
+
+		for ii = 1, #str do
+			local char = sub( str, ii, ii )
+
+			if char:find( "%s" ) and sub( model.background[ i ], ii, ii ) == "g" then
+				res = res .. "\0"
+			else
+				res = res .. char
+			end
+		end
+		
+		model.characters[ i ] = res
+	end
+	--]]
 
 	model.width  = #model.background[ 1 ]
 	model.height = #model.background
@@ -442,6 +468,9 @@ function redraw()
 		-- Print the version information
 		main_buf:write( w - #version, h - 1, version, nil, colours.lightGrey )
 	end
+
+	-- Wish a merry Christmas
+	main_buf:write( 2, logo.height, "Merry Christmas!", nil, colours.green )
 
 	-- Overlay
 	--- Particles
@@ -578,7 +607,9 @@ function update( dt )
 				--x_speed = random() > 0.1 and -12 or -8;
 				y_speed = 18;
 
-				symbol  = symbols[ random( 1, #symbols ) ];
+				sin_offset = random();
+
+				symbol = symbols[ random( 1, #symbols ) ];
 
 				fg = random() > 0.05 and colours.lightGrey or colours.grey;
 				bg = colours.white;
