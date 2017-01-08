@@ -8,6 +8,8 @@
 -- Passed from launcher (menu.lua)
 local args = { ... }
 local settings = args[ 1 ]
+local terminal = args[ 2 ]
+local terminal_scale = args[ 3 ]
 
 if not require or type( settings ) ~= "table" then
 	print( "wiLL kIll you But RUn mEnU.LUa FiRst" )
@@ -41,7 +43,12 @@ local	redraw, spawn_zombie, update, fire, get_coord_speeds,
 		save_state, has_weapon
 
 -- Display setup
-local main_window = term.current()
+local main_window = terminal or ( settings.multishell_support and term.current() or term.native() )
+
+if  main_window.setTextScale and terminal_scale then
+	main_window.setTextScale   ( terminal_scale )
+end
+
 local w, h = main_window.getSize()
 local main_buf    = buffer.new( 0, 0, w, h )
 local overlay_buf = buffer.new( 0, 0, w, h, main_buf, -1, -2, "\0" )
@@ -56,9 +63,9 @@ local BULLETS_LEFT_WARNING = 2
 local framerate_cap = settings.limit_FPS
 
 -- Data
-local now = -1
+local now = clock()
 local end_time
-local start_time = clock()
+local start_time = now
 --local stuff = "interestring"
 local running = true
 local HUD_enabled = true
@@ -77,6 +84,19 @@ local melee_swings = 0
 local hits = 0
 local melee_hits = 0
 local wave_count = 0
+---- Technical
+local time_spent_rendering = 0
+local time_spent_updating = 0
+local time_spent_waiting = 0
+local report_performance = settings.report_performance
+------ Rendering details
+local time_spent_clearing = 0
+local time_spent_drawing_overlay = 0
+local time_spent_drawing_borders = 0
+local time_spent_drawing_drawables = 0
+local time_spent_drawing_background = 0
+local time_spent_rendering_main_buffer = 0
+local time_spent_rendering_overlay_buffer = 0
 
 local next_wave_countdown = -math.huge
 
@@ -471,8 +491,22 @@ end
 --- Redraw the view.
 -- @return nil
 function redraw()
+	local time
+	local local_now
+
+	if report_performance then
+		local_now = clock()
+		time = local_now
+	end
+
 	overlay_buf:clear( -1, -2, "\0" )
 	main_buf:clear( colours.black )
+
+	if report_performance then
+		local_now = clock()
+		time_spent_clearing = time_spent_clearing + local_now - time
+		time = local_now
+	end
 
 	--stuff = next_wave_countdown
 
@@ -493,6 +527,12 @@ function redraw()
 		end
 
 		line_number = line_number + 1
+	end
+
+	if report_performance then
+		local_now = clock()
+		time_spent_drawing_background = time_spent_drawing_background + local_now - time
+		time = local_now
 	end
 
 	-- Draw the world borders
@@ -522,6 +562,12 @@ function redraw()
 			camera_offset.x + world_size.x
 		)
 
+	if report_performance then
+		local_now = clock()
+		time_spent_drawing_borders = time_spent_drawing_borders + local_now - time
+		time = local_now
+	end
+
 	-- Draw all objects in the world
 	for index = 1, #drawables do
 		local collection = drawables[ index ]
@@ -541,6 +587,12 @@ function redraw()
 				end
 			end
 		end
+	end
+
+	if report_performance then
+		local_now = clock()
+		time_spent_drawing_drawables = time_spent_drawing_drawables + local_now - time
+		time = local_now
 	end
 
 	-- Draw the player
@@ -614,12 +666,18 @@ function redraw()
 		overlay_buf:write( round( w / 2 - #text / 2 ), 5, text, -2, colours.white )
 	end
 
+	if report_performance then
+		local_now = clock()
+		time_spent_drawing_overlay = time_spent_drawing_overlay + local_now - time
+		time = local_now
+	end
+
 	if player.health <= 0 then
 		end_time = end_time or clock()
 		local text = " YOU ARE DEAD "
 
-		local time = end_time - start_time
-		local time_str = math.floor( time / 60 ) .. "m " .. math.floor( time % 60 ) .. "s"
+		local seconds = end_time - start_time
+		local time_str = math.floor( seconds / 60 ) .. "m " .. math.floor( seconds % 60 ) .. "s"
 
 		overlay_buf:write( round( w / 2 - #text / 2 ), round( h / 2 ) - 4, text, colours.black, colours.white )
 
@@ -643,9 +701,21 @@ function redraw()
 
 	if HUD_enabled then
 		overlay_buf:render()
+		--overlay_buf:render_to_window( main_window, nil, nil, true )
+
+		if report_performance then
+			local_now = clock()
+			time_spent_rendering_overlay_buffer = time_spent_rendering_overlay_buffer + local_now - time
+			time = local_now
+		end
 	end
 
-	main_buf:render_to_window( main_window )
+	main_buf:render_to_window( main_window, nil, nil, true )
+
+	if report_performance then
+		local_now = clock()
+		time_spent_rendering_main_buffer = time_spent_rendering_main_buffer + local_now - time
+	end
 end
 
 --- Update the world.
@@ -994,6 +1064,7 @@ function save_state()
 	inventory.ammunition  = player.inventory.ammunition
 	inventory.attachments = {}
 	inventory.weapons = {}
+	inventory.stats = {}
 
 	-- Save only the weapon links
 	for _, item in ipairs( player.inventory.weapons ) do
@@ -1020,6 +1091,28 @@ function save_state()
 				break
 			end
 		end
+	end
+
+	if report_performance then
+		local time_spent_cooking, time_spent_blitting = buffer.get_telemetry()
+
+		inventory.stats.technical = {
+			time_spent_waiting    = time_spent_waiting;
+			time_spent_updating   = time_spent_updating;
+			time_spent_rendering  = time_spent_rendering;
+
+			rendering = {
+				time_spent_cooking                  = time_spent_cooking;
+				time_spent_blitting                 = time_spent_blitting;
+				time_spent_clearing                 = time_spent_clearing;
+				time_spent_drawing_overlay          = time_spent_drawing_overlay;
+				time_spent_drawing_borders          = time_spent_drawing_borders;
+				time_spent_drawing_drawables        = time_spent_drawing_drawables;
+				time_spent_drawing_background       = time_spent_drawing_background;
+				time_spent_rendering_main_buffer    = time_spent_rendering_main_buffer;
+				time_spent_rendering_overlay_buffer = time_spent_rendering_overlay_buffer;
+			};
+		}
 	end
 
 	local save_file = io.open( root .. "saves/unnamed.tbl", "w" )
@@ -1240,8 +1333,13 @@ local last_coords = {
 	y = 0;
 }
 
+now = clock()
+local last_time = now
 local end_queued = false
-local last_time = clock()
+local end_of_loop_time = now
+---- Touch support
+local touching = false
+local touch_x, touch_y
 
 -- The Glorious Game Loop
 while running do
@@ -1254,6 +1352,10 @@ while running do
 
 	now = clock()
 	local dt = now - last_time
+
+	if report_performance then
+		time_spent_waiting = time_spent_waiting + now - end_of_loop_time
+	end
 
 	if ev[ 1 ] == "end" then
 		end_queued = false
@@ -1295,6 +1397,12 @@ while running do
 		last_coords.x = ev[ 3 ]
 		last_coords.y = ev[ 4 ]
 
+	elseif ev[ 1 ] == "monitor_touch" then
+		touching = true
+
+		touch_x = ev[ 3 ]
+		touch_y = ev[ 4 ]
+
 	elseif ev[ 1 ] == "mouse_drag" then
 		-- Mouse on drags
 		last_coords.x = ev[ 3 ]
@@ -1317,10 +1425,10 @@ while running do
 		player.weapon.current_cooldown = 0
 	end
 
-	-- React to *held* keys (and mouse buttons)
-	if held.mouse[ 1 ] and player.weapon.current_cooldown <= 0 then
-		local x = last_coords.x - player.x - camera_offset.x - 1
-		local y = last_coords.y - player.y - camera_offset.y - 1
+	-- React to *held* keys, mouse buttons and touch events
+	if ( held.mouse[ 1 ] or touching ) and player.weapon.current_cooldown <= 0 then
+		local x = ( touching and touch_x or last_coords.x ) - player.x - camera_offset.x - 1
+		local y = ( touching and touch_y or last_coords.y ) - player.y - camera_offset.y - 1
 
 		-- Handle firing the gun!
 		if    player.weapon.melee
@@ -1362,10 +1470,32 @@ while running do
 	end
 
 	if not framerate_cap or dt ~= 0 then
+		local time
+		local local_now
+
+		if report_performance then
+			local_now = clock()
+			time = local_now
+		end
+
 		update( dt )
+
+		if report_performance then
+			local_now = clock()
+			time_spent_updating = time_spent_updating + local_now - time
+			time = local_now
+		end
+
 		redraw()
 
+		if report_performance then
+			local_now = clock()
+			time_spent_rendering = time_spent_rendering + local_now - time
+			end_of_loop_time = local_now
+		end
+
 		last_time = now
+		touching = false
 		frames = frames + 1
 	end
 end
