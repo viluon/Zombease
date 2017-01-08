@@ -1,5 +1,5 @@
 
--- [SublimeLinter luacheck-globals:term,colours,textutils,keys,blittle,shell,sleep,fs,http]
+-- [SublimeLinter luacheck-globals:term,colours,textutils,keys,blittle,shell,sleep,fs,http,peripheral]
 
 -- Zombease - a top-down zombie survival shooter by viluon
 
@@ -8,11 +8,13 @@ if not term.isColour or not term.isColour() then
 	error( "Zombease requires an advanced computer!", 0 )
 end
 
-if not fs.exists "blittle" then shell.run "pastebin get ujchRSnU blittle" end
+local root = "/"
+
+if not fs.exists "/blittle" then shell.run "pastebin get ujchRSnU /blittle" end
 os.loadAPI "blittle"
 local blittle = blittle
 
-if not require then shell.run "/desktox/init.lua" end
+if not require then shell.run( root .. "desktox/init.lua" ) end
 
 local args = { ... }
 
@@ -34,16 +36,19 @@ local WIND_MIN_SPEED = -8
 local SNOWFLAKE_SPAWN_RATE = 0.05
 local SETTINGS_SAVE_PERIOD = 5
 local MENU_ANIM_DURATION = 0.5
-local MENU_WIDTH = 15
+local START_MENU_POS_Y = 5
+
+local REQUIRED_MIN_SCREEN_WIDTH = 30
+local REQUIRED_MIN_SCREEN_HEIGHT = 15
 
 -- Function declarations
 local	redraw, shade, update, ease_in_quad,
 		ease_out_quad, change_menu, parse_model,
 		draw_model, save_settings, align_number,
-		get_paste
+		get_paste, populate_resolution_menu
+local empty_func = function() end 
 
-local version = "0.2.1-beta"
-local root = "/"
+local version = "0.2.2-beta"
 
 -- Localisation
 local colours = colours
@@ -54,15 +59,18 @@ local term = term
 local math = math
 
 local remove = table.remove
+local insert = table.insert
 local random = math.random
-local sleep = sleep
-local clock = os.clock
+local yield = coroutine.yield
 local queue = os.queueEvent
+local clock = os.clock
+local sleep = sleep
 local floor = math.floor
 local gsub = string.gsub
 local sub = string.sub
 local min = math.min
 local max = math.max
+local sin = math.sin
 
 -- Data
 local now
@@ -100,6 +108,14 @@ local main_win = term.current()
 
 local w, h = main_win.getSize()
 
+if w < REQUIRED_MIN_SCREEN_WIDTH or h < REQUIRED_MIN_SCREEN_HEIGHT then
+	print(
+		"We're sorry, Zombease requires a resolution of at least " .. REQUIRED_MIN_SCREEN_WIDTH .. "x" .. REQUIRED_MIN_SCREEN_HEIGHT
+	)
+
+	return
+end
+
 local main_buf    = buffer.new( 0, 0, w, h, nil, colours.black )
 local overlay_buf = buffer.new( 0, 0, w, h, main_buf, -1, -2, "\0" )
 local armoury_buf = buffer.new( 0, logo.height, w, h - logo.height, main_buf )
@@ -117,11 +133,16 @@ local symbols = {
 	"\127", "*",
 }
 
+-- The terminal the game should use
+local terminal = main_win
+local terminal_scale = 1
+
 local settings = {
 	show_version = true;
 	snowflakes = 0;
 	limit_FPS = true;
 	difficulty = 2;
+	report_performance = true;
 }
 
 local settings_file = io.open( root .. "saves/settings.tbl", "r" )
@@ -193,6 +214,20 @@ menu = {
 			end;
 		};
 		[ 2 ] = {
+			label = "Display";
+			fn = function( _ )
+				change_menu( "settings_display" )
+			end;
+		};
+		[ 3 ] = {
+			label = settings.report_performance and "Tech stats: on" or "Tech stats: off";
+			fn = function( self )
+				settings.report_performance = not settings.report_performance
+				self.label = settings.report_performance and "Tech stats: on" or "Tech stats: off";
+				save_settings()
+			end;
+		};
+		[ 4 ] = {
 			label = settings.show_version and "Version: shown" or "Version: hidden";
 			fn = function( self )
 				settings.show_version = not settings.show_version
@@ -200,16 +235,14 @@ menu = {
 				save_settings()
 			end;
 		};
-		[ 3 ] = {
-			label = settings.limit_FPS and "FPS limit: on" or "FPS limit: off";
-			fn = function( self )
-				settings.limit_FPS = not settings.limit_FPS
-				self.label = settings.limit_FPS and "FPS limit: on" or "FPS limit: off";
-				save_settings()
+		[ 5 ] = {
+			label = "Debug menu";
+			fn = function( _ )
+				change_menu( "debug" )
 			end;
 		};
-		[ 4 ] = {};
-		[ 5 ] = {
+		[ 6 ] = {};
+		[ 7 ] = {
 			label = "Back";
 			fn = function( _ )
 				change_menu( "main" )
@@ -268,10 +301,71 @@ menu = {
 			end;
 		};
 	};
+
+	settings_display = {
+		[ 1 ] = {
+			label = "Resolution";
+			fn = function( _ )
+				change_menu( "resolution" )
+			end;
+		};
+		[ 2 ] = {
+			label = settings.limit_FPS and "FPS limit: on" or "FPS limit: off";
+			fn = function( self )
+				settings.limit_FPS = not settings.limit_FPS
+				self.label = settings.limit_FPS and "FPS limit: on" or "FPS limit: off";
+				save_settings()
+			end;
+		};
+		[ 3 ] = {};
+		[ 4 ] = {
+			label = "Back";
+			fn = function( _ )
+				change_menu( "settings" )
+			end;
+		};
+	};
+
+	resolution = {
+		[ 1 ] = {};
+		[ 2 ] = {
+			label = "Back";
+			fn = function( _ )
+				change_menu( "settings_display" )
+			end;
+		};
+	};
+
+	debug = {
+		{ label = "foo 1";  fun = empty_func; };
+		{ label = "foo 2";  fun = empty_func; };
+		{ label = "foo 3";  fun = empty_func; };
+		{ label = "foo 4";  fun = empty_func; };
+		{ label = "foo 5";  fun = empty_func; };
+		{ label = "foo 6";  fun = empty_func; };
+		{ label = "foo 7";  fun = empty_func; };
+		{ label = "foo 8";  fun = empty_func; };
+		{ label = "foo 9";  fun = empty_func; };
+		{ label = "foo 10"; fun = empty_func; };
+		{ label = "foo 11"; fun = empty_func; };
+		{ label = "foo 12"; fun = empty_func; };
+		{ label = "foo 13"; fun = empty_func; };
+		{ label = "foo 14"; fun = empty_func; };
+		{};
+		{
+			label = "Back";
+			fn = function( _ )
+				change_menu( "settings" )
+			end;
+		};
+	};
 }
 
+local previous_menu_width = 0
+local menu_width = 0
+
 local menu_pos_x = 7
-local menu_pos_y = 5
+local menu_pos_y = START_MENU_POS_Y
 local model_offset_x = 0
 local model_offset_y = 0
 local selected_weapon = 1
@@ -433,8 +527,97 @@ end
 -- @param state The state to be applied
 -- @return nil
 function change_menu( state )
+	previous_menu_width = menu_width
 	menu_changed = now
 	new_state = state
+
+	local longest = -1
+
+	for _, menu_item in ipairs( menu[ state ] ) do
+		if menu_item.label then
+			if  longest < #menu_item.label then
+				longest = #menu_item.label
+			end
+		end
+	end
+
+	menu_width = longest + 1
+end
+
+--- Generate options for the resolution submenu
+-- @return nil
+function populate_resolution_menu()
+	local monitors = {}
+	local native = term.native()
+
+	peripheral.find( "monitor", function( name, object )
+		if object.isColour and object.isColour() then
+			monitors[ #monitors + 1 ] = {
+				name   = name;
+				handle = object;
+			}
+
+			monitors[ name ] = object
+		end
+	end )
+
+	monitors[ main_win ] = main_win
+	monitors[ native   ] = native
+
+	--- The function called on a menu item select
+	-- @return nil
+	local function mon_func( self )
+		for i = 1, #menu.resolution - 2 do
+			local item = menu.resolution[ i ]
+			item.label = " " .. item.label:sub( 2, -1 )
+		end
+
+		terminal = monitors[ self.name ]
+		terminal_scale = self.scale
+
+		self.label = ">" .. self.label:sub( 2, -1 )
+	end
+
+	for i = 1, #monitors do
+		local mon = monitors[ i ]
+
+		for scale = 0.5, 5, 0.5 do
+			mon.handle.setTextScale( scale )
+
+			local width, height = mon.handle.getSize()
+
+			if width >= REQUIRED_MIN_SCREEN_WIDTH and height >= REQUIRED_MIN_SCREEN_HEIGHT then
+				insert( menu.resolution, 1,
+					{
+						label = '  Monitor "' .. mon.name .. '" ' .. width .. "x" .. height .. " (native)";
+						scale = scale;
+						name = mon.name;
+						fn = mon_func;
+					}
+				)
+			end
+		end
+	end
+
+	insert( menu.resolution, 1,
+		{
+			label = "> This window " .. w .. "x" .. h;
+			scale = 1;
+			name = main_win;
+			fn = mon_func;
+		}
+	)
+
+	local width, height = native.getSize()
+
+	insert( menu.resolution, 1,
+		{
+			label = "  This computer " .. width .. "x" .. height .. " (native)";
+			scale = 1;
+			name = native;
+			fn = mon_func;
+		}
+	)
 end
 
 --- Apply the current shader on a buffer.
@@ -470,13 +653,23 @@ function redraw()
 	end
 
 	-- Wish a merry Christmas
-	main_buf:write( 2, logo.height, "Merry Christmas!", nil, colours.green )
+	local wish = "Happy New Year!"
+	main_buf:write( logo.width - #wish + 1, logo.height, wish, nil, colours.green )
 
 	-- Overlay
 	--- Particles
 	for i = 1, #particles do
 		local particle = particles[ i ]
-		overlay_buf:write( round( particle.x ), round( particle.y ), particle.symbol, particle.bg or -1, particle.fg or -2 )
+		-- Offset from the sin effect (max: 1.7)
+		local offset = -1.7 / 2 + sin( now * 6 + particle.sin_offset ) * 1.7
+
+		overlay_buf:write(
+			round( particle.x + offset ),
+			round( particle.y ),
+			particle.symbol,
+			particle.bg or -1,
+			particle.fg or -2
+		)
 	end
 
 	overlay_buf:render()
@@ -488,12 +681,19 @@ function redraw()
 		armoury_buf:clear( -1, -2, "\0" )
 
 		if inventory then
+			local infobox_x = round( ( 2 / 3 ) * w ) - 1
 			local weapon = inventory.weapons[ selected_weapon ]
+
 			-- Draw the selected model
+			local model = models[ weapon.kind.name ]
+
+			local armoury_width  = floor( ( 1 / 3 ) * w ) - 2
+			local armoury_height = ( h - logo.height ) / 2
+
 			draw_model(
-				models[ weapon.kind.name ],
-				round( 3 + model_offset_x ),
-				round( 2 + model_offset_y ),
+				model,
+				round( max( armoury_width  - model.width  / 2, 1 ) + model_offset_x ),
+				round( max( armoury_height - model.height / 2, 1 ) + model_offset_y ),
 				armoury_buf
 			)
 
@@ -504,8 +704,6 @@ function redraw()
 
 				armoury_buf:write( ( index - 1 ) * 3 + 1, h - logo.height - 1, weap.kind.text, colours.white, colours.grey )
 			end
-
-			local infobox_x = round( ( 2 / 3 ) * w ) - 1
 
 			-- Print weapon info
 			local damage = bullet_kinds[ weapon.kind.bullet_kind ].damage
@@ -577,7 +775,7 @@ function update( dt )
 	-- Calculate wind speed
 	local diff = now - last_wind_howl_start
 
-	--stuff = "" .. wind_speed
+	--stuff = "" .. diff
 
 	if diff > WIND_HOWL_PERIOD then
 		last_wind_howl_start = now
@@ -600,18 +798,23 @@ function update( dt )
 	-- Spawn new particles
 	if now - last_spawn > SNOWFLAKE_SPAWN_RATE then
 		for _ = 1, 2 do
+			local position = random( 3 + WIND_MIN_SPEED / 2 - wind_speed / 2, h + w - 1 )
+
 			particles[ #particles + 1 ] = {
-				x = random( 2 - wind_speed / 2, w - wind_speed + WIND_MIN_SPEED + 2 );
-				y = -1;
+				--x = random( 2 - wind_speed / 2, w - wind_speed + WIND_MIN_SPEED + 2 );
+				--y = -1;
+
+				x = min( position, w );
+				y = position > w and position % w or -1;
 
 				--x_speed = random() > 0.1 and -12 or -8;
-				y_speed = 18;
+				y_speed = 18 + ( random() > 0.5 and 10 or 0 );
 
-				sin_offset = random();
+				sin_offset = random() * 6;
 
 				symbol = symbols[ random( 1, #symbols ) ];
 
-				fg = random() > 0.05 and colours.lightGrey or colours.grey;
+				fg = random() > 0.10 and colours.lightGrey or colours.grey;
 				bg = colours.white;
 			}
 		end
@@ -648,11 +851,15 @@ function update( dt )
 
 	-- Animate menu changes
 	if new_state ~= menu_state then
-		menu_label_end = math.huge
-		menu_label_start = ease_in_quad( now - menu_changed, 1, MENU_WIDTH - 1, MENU_ANIM_DURATION )
+		menu_label_start = ease_in_quad( now - menu_changed, 1, previous_menu_width - 1, MENU_ANIM_DURATION )
+		menu_label_end   = math.huge
 
-		if menu_label_start == MENU_WIDTH then
+		if menu_label_start == previous_menu_width then
+			-- This is the actual menu switch!
 			menu_state = new_state
+			menu_label_end = 0
+
+			menu_pos_y = START_MENU_POS_Y
 		end
 
 		if new_state == "armoury" then
@@ -665,7 +872,7 @@ function update( dt )
 		end
 	else
 		menu_label_start = 1
-		menu_label_end   = ease_in_quad( now - menu_changed - MENU_ANIM_DURATION, 1, MENU_WIDTH - 1, MENU_ANIM_DURATION )
+		menu_label_end   = ease_in_quad( now - menu_changed - MENU_ANIM_DURATION, 1, menu_width - 1, MENU_ANIM_DURATION )
 	end
 end
 
@@ -710,7 +917,7 @@ if not arguments[ "no-intro" ] then
 
 	for _ = 1, 3 do
 		main_buf:map( shade )
-		main_buf:render_to_window( main_win, 1, 1 )
+		main_buf:render_to_window( main_win, 1, 1, true )
 		sleep( 0 )
 		sleep( 0 )
 	end
@@ -846,10 +1053,16 @@ if arguments[ "quick-launch" ] then
 	launch = true
 end
 
+
 local end_queued
 now = clock()
 local last_time = now
 local start_time = now
+
+---- Switch to main menu
+change_menu( "main" )
+
+populate_resolution_menu()
 
 local last_settings_save = -1
 
@@ -862,7 +1075,7 @@ while running do
 		end_queued = true
 	end
 
-	local ev = { coroutine.yield() }
+	local ev = { yield() }
 
 	now = clock()
 	local dt = now - last_time
@@ -889,7 +1102,7 @@ while running do
 		start_drag_x = ev[ 3 ]
 		start_drag_y = ev[ 4 ]
 
-	elseif ev[ 1 ] == "mouse_up" then
+	elseif ev[ 1 ] == "mouse_up" or ev[ 1 ] == "monitor_touch" then
 		local x = ev[ 3 ] - 1
 		local y = ev[ 4 ] - 1
 
@@ -898,8 +1111,8 @@ while running do
 				change_menu( "main" )
 			end
 
-		elseif x >= menu_pos_x and x <= menu_pos_x + MENU_WIDTH and y >= menu_pos_y and y <= menu_pos_y + #menu[ menu_state ] then
-			local index = y - 5
+		elseif x >= menu_pos_x and x <= menu_pos_x + menu_width and y >= menu_pos_y and y <= menu_pos_y + #menu[ menu_state ] then
+			local index = y - menu_pos_y
 
 			if  menu[ menu_state ][ index ] and menu[ menu_state ][ index ].fn then
 				menu[ menu_state ][ index ].fn( menu[ menu_state ][ index ] )
@@ -915,6 +1128,9 @@ while running do
 			selected_weapon = min( max( selected_weapon + ev[ 2 ], 1 ), #inventory.weapons )
 			model_offset_x = 0
 			model_offset_y = 0
+
+		elseif #menu[ menu_state ] >= h / 2 then
+			menu_pos_y = max( min( menu_pos_y - ev[ 2 ], START_MENU_POS_Y ), h - #menu[ menu_state ] - 3 )
 		end
 
 	elseif ev[ 1 ] == "char" then
@@ -928,6 +1144,24 @@ while running do
 				menu[ menu_state ][ 1 ].fn( menu[ menu_state ][ 1 ] )
 			end
 		end
+
+	elseif ev[ 1 ] == "term_resize" or ev[ 1 ] == "monitor_resize" or ev[ 1 ] == "peripheral" then
+		if ev[ 1 ] == "term_resize" then
+			-- Resize buffers
+			w, h = main_win.getSize()
+
+			main_buf:resize( w, h )
+			overlay_buf:resize( w, h )
+			armoury_buf:resize( w, h - logo.height )
+		end
+
+		-- Remove "old" entries from the resolution settings menu
+		for i = #menu.resolution - 2, 1, -1 do
+			remove( menu.resolution, i )
+		end
+
+		-- Insert updated ones
+		populate_resolution_menu()
 	end
 
 	if now - last_settings_save > SETTINGS_SAVE_PERIOD then
@@ -969,7 +1203,7 @@ if launch then
 	local fn = loadstring( contents, root .. "main.lua" )
 	setfenv( fn, _G )
 
-	return fn( settings )
+	return fn( settings, terminal, terminal_scale )
 
 elseif perform_update then
 	term.setCursorPos( 1, 1 )
