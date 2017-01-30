@@ -45,7 +45,8 @@ local REQUIRED_MIN_SCREEN_HEIGHT = 15
 local	redraw, shade, update, ease_in_quad,
 		ease_out_quad, change_menu, parse_model,
 		draw_model, save_settings, align_number,
-		get_paste, populate_resolution_menu
+		get_paste, populate_resolution_menu,
+		move_player
 local empty_func = function() end 
 
 local version = "0.2.2-beta"
@@ -77,6 +78,9 @@ local now
 local running = true
 local launch = false
 local perform_update = false
+
+--- Held keys and buttons
+local held = { mouse = {} }
 
 if not fs.exists( root .. "tmp/logo_dec" ) then
 	-- Decode the logo
@@ -143,6 +147,13 @@ local settings = {
 	limit_FPS = true;
 	difficulty = 2;
 	report_performance = true;
+
+	keybindings = {
+		up = keys.w;
+		down = keys.s;
+		left = keys.a;
+		right = keys.d;
+	}
 }
 
 local settings_file = io.open( root .. "saves/settings.tbl", "r" )
@@ -156,6 +167,38 @@ if settings_file then
 
 	settings_file:close()
 end
+
+local player = {
+	x = round( ( 9 / 12 ) * w );
+	y = round( ( 8 / 12 ) * h );
+
+	type = "player";
+
+	text = "^";
+	bg = colours.brown;
+	fg = colours.black;
+
+	health = 100;
+	last_moved = -1;
+	movement_speed = 0.1;
+
+	reload_time_multiplier = 1;
+
+	-- New save inventory (what you begin with)
+	inventory = {
+		ammunition = {
+			generic = 4;
+		};
+
+		weapons = {
+			--weapons.fists,
+		};
+
+		attachments = {
+
+		};
+	};
+}
 
 local menu
 menu = {
@@ -337,20 +380,30 @@ menu = {
 	};
 
 	debug = {
-		{ label = "foo 1";  fun = empty_func; };
-		{ label = "foo 2";  fun = empty_func; };
-		{ label = "foo 3";  fun = empty_func; };
-		{ label = "foo 4";  fun = empty_func; };
-		{ label = "foo 5";  fun = empty_func; };
-		{ label = "foo 6";  fun = empty_func; };
-		{ label = "foo 7";  fun = empty_func; };
-		{ label = "foo 8";  fun = empty_func; };
-		{ label = "foo 9";  fun = empty_func; };
+		{ label = "foo 01"; fun = empty_func; };
+		{ label = "foo 02"; fun = empty_func; };
+		{ label = "foo 03"; fun = empty_func; };
+		{ label = "foo 04"; fun = empty_func; };
+		{ label = "foo 05"; fun = empty_func; };
+		{ label = "foo 06"; fun = empty_func; };
+		{ label = "foo 07"; fun = empty_func; };
+		{ label = "foo 08"; fun = empty_func; };
+		{ label = "foo 09"; fun = empty_func; };
 		{ label = "foo 10"; fun = empty_func; };
 		{ label = "foo 11"; fun = empty_func; };
 		{ label = "foo 12"; fun = empty_func; };
 		{ label = "foo 13"; fun = empty_func; };
 		{ label = "foo 14"; fun = empty_func; };
+		{ label = "foo 15"; fun = empty_func; };
+		{ label = "foo 16"; fun = empty_func; };
+		{ label = "foo 17"; fun = empty_func; };
+		{ label = "foo 18"; fun = empty_func; };
+		{ label = "foo 19"; fun = empty_func; };
+		{ label = "foo 20"; fun = empty_func; };
+		{ label = "foo 21"; fun = empty_func; };
+		{ label = "foo 22"; fun = empty_func; };
+		{ label = "foo 23"; fun = empty_func; };
+		{ label = "foo 24"; fun = empty_func; };
 		{};
 		{
 			label = "Back";
@@ -647,7 +700,7 @@ function redraw()
 		end
 	end
 
-	if settings.show_version then
+	if settings.show_version and menu_state ~= "armoury" and new_state ~= "armoury" then
 		-- Print the version information
 		main_buf:write( w - #version, h - 1, version, nil, colours.lightGrey )
 	end
@@ -677,12 +730,20 @@ function redraw()
 	-- Draw the game logo
 	blittle.draw( logo, 2, 1, wave_win )
 
+	-- Draw the player
+	main_buf:write( player.x, player.y, player.text, player.bg, player.fg )
+
 	if menu_state == "armoury" or new_state == "armoury" then
 		armoury_buf:clear( -1, -2, "\0" )
 
 		if inventory then
 			local infobox_x = round( ( 2 / 3 ) * w ) - 1
 			local weapon = inventory.weapons[ selected_weapon ]
+
+			if infobox_x <= player.x and armoury_position <= player.y then
+				-- Infobox over the player
+				main_buf:write( player.x, player.y, player.text, player.fg, player.bg )
+			end
 
 			-- Draw the selected model
 			local model = models[ weapon.kind.name ]
@@ -711,38 +772,38 @@ function redraw()
 
 			armoury_buf
 				:draw_filled_rectangle_from_points(
-					infobox_x, 0, w - 1, h - logo.height - 1, colours.grey
+					infobox_x, 0, w - 1, h - logo.height - 1, -2
 				)
-				:write( infobox_x + 1, 1, weapon.kind.name, colours.grey, colours.white )
-				:write( infobox_x + 1, 2, weapon.kind.melee and "Melee weapon" or "Ranged weapon", colours.grey, colours.white )
+				:write( infobox_x + 1, 1, weapon.kind.display_name or weapon.kind.name, -2, colours.black )
+				:write( infobox_x + 1, 2, weapon.kind.melee and "Melee weapon" or "Ranged weapon", -2, colours.grey )
 
-				:write( infobox_x + 1, 4, align_number( "Damage", col, damage ), colours.grey, colours.white )
-				:write( infobox_x + 1, 5, align_number( "Cooldown", col, weapon.kind.cooldown ), colours.grey, colours.white )
-				:write( infobox_x + 1, 6, align_number( "DPS", col, damage / weapon.kind.cooldown ), colours.grey, colours.white )
+				:write( infobox_x + 1, 4, align_number( "Damage", col, damage ), -2, colours.grey )
+				:write( infobox_x + 1, 5, align_number( "Cooldown", col, weapon.kind.cooldown ), -2, colours.grey )
+				:write( infobox_x + 1, 6, align_number( "DPS", col, damage / weapon.kind.cooldown ), -2, colours.grey )
 				:write(
 					infobox_x + 1, 7,
 					align_number( "Accuracy", col, round( weapon.kind.accuracy * 100 ) .. "%" ),
-					colours.grey, colours.white
+					-2, colours.grey
 				)
 				:write(
 					infobox_x + 1, 8,
 					align_number( "Knockback", col, floor( bullet_kinds[ weapon.kind.bullet_kind ].knockback ) ),
-					colours.grey, colours.white
+					-2, colours.grey
 				)
 				:write(
 					infobox_x + 2, 9,
 					"(" .. ( bullet_kinds[ weapon.kind.bullet_kind ].knockback % 1 ) * 100 .. "% chance)",
-					colours.grey, colours.white
+					-2, colours.grey
 				)
 				:write(
 					infobox_x + 1, 10,
 					align_number( "Clip size", col, weapon.kind.clip_size or "none" ),
-					colours.grey, colours.white
+					-2, colours.grey
 				)
 				:write(
 					infobox_x + 1, 11,
 					align_number( "Bullets", col, inventory.ammunition[ weapon.kind.bullet_kind ] ),
-					colours.grey, colours.white
+					-2, colours.grey
 				)
 		else
 			local text = "Get some items in-game first!"
@@ -752,10 +813,6 @@ function redraw()
 		armoury_buf:write( 0, 0, armoury_back_button.label )
 
 		armoury_buf:render( main_buf, 0, round( armoury_position ) )
-
-	else
-		-- Draw the player
-		main_buf:write( w - 14, h - 7, "^", colours.brown, colours.grey )
 	end
 
 	-- Apply the proper fade effect
@@ -876,6 +933,15 @@ function update( dt )
 	end
 end
 
+--- Move the player character (while respecting collisions).
+-- @param x	description
+-- @param y	description
+-- @return nil
+function move_player( x, y )
+	player.x = x
+	player.y = y
+end
+
 -- Execution code
 --- Process commandline arguments
 local last_setter
@@ -899,6 +965,7 @@ for i = 1, #args do
 		end
 	end
 end
+
 if not arguments[ "no-intro" ] then
 	--- Display the Yellowave signature
 	--  (either variation #7, #1, or, if specified, the one set by the command line arg -yw)
@@ -926,15 +993,6 @@ if not arguments[ "no-intro" ] then
 end
 
 wave_win.setVisible( false )
-
-if arguments.menu and type( arguments.menu ) == "table" then
-	local value = arguments.menu[ 1 ]
-
-	if menu[ value ] then
-		menu_state = value
-		new_state = value
-	end
-end
 
 --- Load assets
 local model_dir = root .. "assets/models/"
@@ -1062,6 +1120,14 @@ local start_time = now
 ---- Switch to main menu
 change_menu( "main" )
 
+if arguments.menu and type( arguments.menu ) == "table" then
+	local value = arguments.menu[ 1 ]
+
+	if menu[ value ] then
+		change_menu( value )
+	end
+end
+
 populate_resolution_menu()
 
 local last_settings_save = -1
@@ -1139,11 +1205,16 @@ while running do
 		end
 
 	elseif ev[ 1 ] == "key" then
+		held[ ev[ 2 ] ] = true
+
 		if ev[ 2 ] == keys.enter then
 			if  menu[ menu_state ][ 1 ] and menu[ menu_state ][ 1 ].fn then
 				menu[ menu_state ][ 1 ].fn( menu[ menu_state ][ 1 ] )
 			end
 		end
+
+	elseif ev[ 1 ] == "key_up" then
+		held[ ev[ 2 ] ] = false
 
 	elseif ev[ 1 ] == "term_resize" or ev[ 1 ] == "monitor_resize" or ev[ 1 ] == "peripheral" then
 		if ev[ 1 ] == "term_resize" then
@@ -1164,8 +1235,21 @@ while running do
 		populate_resolution_menu()
 	end
 
+	-- Player movement
+	local keybind = settings.keybindings
+
+	if  player.movement_speed < now - player.last_moved and false --TODO: Remove the block and continue ;)
+	and ( held[ keybind.up ] or held[ keybind.down ] or held[ keybind.left ] or held[ keybind.right ] ) then
+		move_player(
+			player.x + ( held[ keybind.left ] and -1 or 0 ) + ( held[ keybind.right ] and 1 or 0 ),
+			player.y + ( held[ keybind.up   ] and -1 or 0 ) + ( held[ keybind.down  ] and 1 or 0 )
+		)
+
+		player.last_moved = now
+	end
+
+	-- Save the settings
 	if now - last_settings_save > SETTINGS_SAVE_PERIOD then
-		-- Save the settings
 		save_settings()
 		last_settings_save = now
 	end

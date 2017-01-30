@@ -1039,7 +1039,7 @@ function buffer_methods:clear_line( y, background_colour, foreground_colour, cha
 	end_x = tonumber( end_x ) or w
 
 	-- Go through all pixels on this line and set them to clear_pixel
-	for x = start_x, min( end_x - start_x, w - 1 ) do
+	for x = start_x, min( end_x, w - 1 ) do
 		self[ y * w + x ] = clear_pixel
 	end
 
@@ -1075,7 +1075,7 @@ function buffer_methods:clear_column( x, background_colour, foreground_colour, c
 	end_y = tonumber( end_y ) or h
 
 	-- Go through all pixels in this column and set them to clear_pixel
-	for y = start_y, min( end_y - start_y, h ) do
+	for y = start_y, min( end_y, h ) do
 		self[ y * w + x ] = clear_pixel
 	end
 
