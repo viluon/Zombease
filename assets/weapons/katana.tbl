@@ -1,5 +1,7 @@
 
 return {
+	display_name = "Katana";
+
 	name  = "katana";
 	model = "katana.mdl";
 

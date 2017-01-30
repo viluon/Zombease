@@ -1,5 +1,7 @@
 
 return {
+	display_name = "Deretta 6K";
+
 	name  = "pistol";
 	model = "pistol.mdl";
 

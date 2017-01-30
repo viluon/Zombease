@@ -1,5 +1,7 @@
 
 return {
+	display_name = "AR-42";
+
 	name  = "assault_rifle";
 	model = "assault_rifle.mdl";
 
