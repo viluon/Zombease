@@ -1094,7 +1094,7 @@ function save_state()
 	end
 
 	if report_performance then
-		local time_spent_cooking, time_spent_blitting = buffer.get_telemetry()
+		--local time_spent_cooking, time_spent_blitting = buffer.get_telemetry()
 
 		inventory.stats.technical = {
 			time_spent_waiting    = time_spent_waiting;
@@ -1102,8 +1102,8 @@ function save_state()
 			time_spent_rendering  = time_spent_rendering;
 
 			rendering = {
-				time_spent_cooking                  = time_spent_cooking;
-				time_spent_blitting                 = time_spent_blitting;
+				--time_spent_cooking                  = time_spent_cooking;
+				--time_spent_blitting                 = time_spent_blitting;
 				time_spent_clearing                 = time_spent_clearing;
 				time_spent_drawing_overlay          = time_spent_drawing_overlay;
 				time_spent_drawing_borders          = time_spent_drawing_borders;

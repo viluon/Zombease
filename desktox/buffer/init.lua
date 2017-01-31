@@ -11,10 +11,11 @@
 
 -- In case you'd forget, pixels are stored as { background_colour, foreground_colour, character }
 
--- DEBUG
+--[[ DEBUG
 local clock = os.clock
 local time_spent_cooking = 0
 local time_spent_blitting = 0
+--]]
 
 local buffer = {}
 
@@ -470,12 +471,12 @@ function buffer_methods:render_to_window( target, x, y, visible )
 	end
 
 	-- Go through all lines of the buffer
-	local before_cook = clock()
+	--local before_cook = clock()
 
 	local lines = self:cook_lines()
 
-	local before_blit = clock()
-	time_spent_cooking = time_spent_cooking + before_blit - before_cook
+	--local before_blit = clock()
+	--time_spent_cooking = time_spent_cooking + before_blit - before_cook
 
 	local line = 0
 
@@ -486,7 +487,7 @@ function buffer_methods:render_to_window( target, x, y, visible )
 		line = line + 1
 	end
 
-	time_spent_blitting = time_spent_blitting + clock() - before_blit
+	--time_spent_blitting = time_spent_blitting + clock() - before_blit
 
 	if visible == true and set_visible then
 		set_visible( true )
@@ -1730,11 +1731,13 @@ function buffer.new_from_points( x1, y1, x2, y2, parent, background_colour, fore
 	return n
 end
 
+--[[
 --- Get the telemetry data
 -- @return Time spent cooking lines and time spent blitting for :render_to_window()
 function buffer.get_telemetry()
 	return time_spent_cooking, time_spent_blitting
 end
+--]]
 
 -- Imports
 buffer.clone = buffer_methods.clone
