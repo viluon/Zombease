@@ -49,6 +49,7 @@ local tconcat = table.concat
 
 local sub  = string.sub
 local gsub = string.gsub
+local char = string.char
 
 local _colour_lookup = {
 	[ colours.white ]          = "0";
@@ -91,6 +92,65 @@ local max   = require( "desktox.utils" ).max
 local round = require( "desktox.utils" ).round
 
 --local log, close_log = require( "desktox.utils" ).open_log_file( "/log.txt" )
+
+--- Get a teletext subpixel character from data for 6 pixels
+-- @param top_left		A boolean indicating whether the relevant subpixel is set
+-- @param top_right		A boolean indicating whether the relevant subpixel is set
+-- @param left			A boolean indicating whether the relevant subpixel is set
+-- @param right			A boolean indicating whether the relevant subpixel is set
+-- @param bottom_left	A boolean indicating whether the relevant subpixel is set
+-- @param bottom_right	A boolean indicating whether the relevant subpixel is set
+-- @return The character followed by a flag determining whether the background
+--         and foreground colours should be inverted.
+local function shrink_to_character( top_left, top_right, left, right, bottom_left, bottom_right )
+	local data = 128
+
+	if not bottom_right then
+		if top_left then
+			data = data + 1
+		end
+
+		if top_right then
+			data = data + 2
+		end
+
+		if left then
+			data = data + 4
+		end
+
+		if right then
+			data = data + 8
+		end
+
+		if bottom_left then
+			data = data + 16
+		end
+
+	else
+		if not top_left then
+			data = data + 1
+		end
+
+		if not top_right then
+			data = data + 2
+		end
+
+		if not left then
+			data = data + 4
+		end
+
+		if not right then
+			data = data + 8
+		end
+
+		if not bottom_left then
+			data = data + 16
+		end
+
+	end
+
+	return char( data ), bottom_right
+end
 
 --- Resize the buffer.
 -- @param width				(Optional) The desired new width, defaults to self.width
@@ -769,18 +829,20 @@ function buffer_methods:get_window_interface( parent, x, y, width, height, visib
 			x_offset = x_offset + 1
 		end
 
+		cursor_x = x_offset
+
 		if visible then
-			win.redraw()
+			return win.redraw()
 		end
 
-		cursor_x = x_offset
+		return win
 	end
 
 	function win.blit( text, text_colours, background_colours )
 		self:blit( cursor_x - 1, cursor_y - 1, text, background_colours, text_colours )
 
 		if visible then
-			win.redraw()
+			return win.redraw()
 		end
 
 		return win
@@ -790,7 +852,7 @@ function buffer_methods:get_window_interface( parent, x, y, width, height, visib
 		self:clear( background_colour )
 
 		if visible then
-			win.redraw()
+			return win.redraw()
 		end
 
 		return win
@@ -800,7 +862,7 @@ function buffer_methods:get_window_interface( parent, x, y, width, height, visib
 		self:clear_line( cursor_y - 1 )
 
 		if visible then
-			win.redraw()
+			return win.redraw()
 		end
 
 		return win
@@ -835,7 +897,7 @@ function buffer_methods:get_window_interface( parent, x, y, width, height, visib
 		self:scroll( n, background_colour )
 
 		if visible then
-			win.redraw()
+			return win.redraw()
 		end
 
 		return win
@@ -867,8 +929,9 @@ function buffer_methods:get_window_interface( parent, x, y, width, height, visib
 	function win.setVisible( visibility )
 		if visible ~= visibility then
 			visible = visibility
+
 			if visible then
-				win.redraw()
+				return win.redraw()
 			end
 		end
 
@@ -915,7 +978,7 @@ function buffer_methods:get_window_interface( parent, x, y, width, height, visib
 		end
 
 		if visible then
-			win.redraw()
+			return win.redraw()
 		end
 
 		return win
@@ -1546,29 +1609,31 @@ function buffer_methods:repair( start_x, start_y, end_x, end_y, background_colou
 		for x = start_x, end_x do
 			local pixel = self[ line_offset + x ]
 
-			if type( pixel ) ~= "table" then
-				-- The pixel is not here at all, set it to a blank pixel
-				n_errors = n_errors + 1
-				self[ line_offset + x ] = new_pixel
-
-			elseif not corrected_pixels[ pixel ] then
-				-- The pixel is here, check all data
-				if type( pixel[ 1 ] ) ~= "number" or not colour_lookup[ pixel[ 1 ] ] then
+			if not pixel or not corrected_pixels[ pixel ] then
+				if type( pixel ) ~= "table" then
+					-- The pixel is not here at all, set it to a blank pixel
 					n_errors = n_errors + 1
-					pixel[ 1 ] = background_colour
-				end
+					self[ line_offset + x ] = new_pixel
 
-				if type( pixel[ 2 ] ) ~= "number" or not colour_lookup[ pixel[ 2 ] ] then
-					n_errors = n_errors + 1
-					pixel[ 2 ] = foreground_colour
-				end
+				else
+					-- The pixel is here, check all data
+					if type( pixel[ 1 ] ) ~= "number" or not colour_lookup[ pixel[ 1 ] ] then
+						n_errors = n_errors + 1
+						pixel[ 1 ] = background_colour
+					end
 
-				if type( pixel[ 3 ] ) ~= "string" or #pixel[ 3 ] ~= 1 then
-					n_errors = n_errors + 1
-					pixel[ 3 ] = character
-				end
+					if type( pixel[ 2 ] ) ~= "number" or not colour_lookup[ pixel[ 2 ] ] then
+						n_errors = n_errors + 1
+						pixel[ 2 ] = foreground_colour
+					end
 
-				corrected_pixels[ pixel ] = true
+					if type( pixel[ 3 ] ) ~= "string" or #pixel[ 3 ] ~= 1 then
+						n_errors = n_errors + 1
+						pixel[ 3 ] = character
+					end
+
+					corrected_pixels[ pixel ] = true
+				end
 			end
 		end
 	end
@@ -1638,6 +1703,25 @@ function buffer_methods:iter( start_x, start_y, end_x, end_y )
 
 		return self[ index ], x, y, index
 	end
+end
+
+--- Shrink the buffer contents using teletext characters from CC 1.76+
+-- @param target	(Optional) The target buffer, defaults to self.parent
+-- @param x			(Optional) The x coordinate in target to shrink self to, 0-based, defaults to self.x1
+-- @param y			(Optional) The y coordinate in target to shrink self to, 0-based, defaults to self.y1
+-- @param start_x	(Optional) The x coordinate in self to start shrinking from, 0-based, defaults to 0
+-- @param start_y	(Optional) The y coordinate in self to start shrinking from, 0-based, defaults to 0
+-- @param end_x		(Optional) The x coordinate in self to stop shrinking at, 0-based, defaults to self.width - 1
+-- @param end_y		(Optional) The y coordinate in self to stop shrinking at, 0-based, defaults to self.height - 1
+-- @return self
+function buffer_methods:shrink( target, x, y, start_x, start_y, end_x, end_y )
+	target = target or self.parent or error( unable_to_set_optional_argument .. "'target': self.parent is nil", 2 )
+	x      = x      or self.x1     or error( unable_to_set_optional_argument .. "'x': self.x1 is nil", 2 )
+	y      = y      or self.y1     or error( unable_to_set_optional_argument .. "'y': self.y1 is nil", 2 )
+
+	
+
+	return self
 end
 
 -- Aliases
@@ -1726,7 +1810,7 @@ function buffer.new_from_points( x1, y1, x2, y2, parent, background_colour, fore
 	n.parent = parent
 
 	-- Metadata
-	n.__type = "desktox-buffer"
+	n.__type = "desktox.buffer"
 
 	return n
 end
@@ -1751,7 +1835,7 @@ buffer.repair = buffer_methods.repair
 -- @param ...		Any arguments passed to :render() or :render_to_window()
 -- @return Tail call of :render() or :render_to_window()
 function buffer_metatable:__call( target, ... )
-	if self.parent or ( type( target ) == "table" and target.__type == "desktox-buffer" ) then
+	if self.parent or ( type( target ) == "table" and target.__type == "desktox.buffer" ) then
 		return self:render( target, ... )
 	else
 		return self:render_to_window( target, ... )
@@ -1764,6 +1848,9 @@ buffer.methods = buffer_methods
 -- Export logging functions
 buffer.log = log
 buffer.close_log = close_log
+
+-- Export utility functions
+buffer.shrink_to_character = shrink_to_character
 
 -- Export the default values
 buffer.DEFAULT_BACKGROUND = DEFAULT_BACKGROUND
