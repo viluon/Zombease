@@ -1,5 +1,5 @@
 
--- [SublimeLinter luacheck-globals:term,colours,textutils,keys,blittle,shell,sleep,fs,http,peripheral]
+-- luacheck:globals term colours textutils keys blittle shell sleep fs http peripheral
 
 -- Zombease - a top-down zombie survival shooter by viluon
 
@@ -8,10 +8,13 @@ if not term.isColour or not term.isColour() then
 	error( "Zombease requires an advanced computer!", 0 )
 end
 
-local root = "/"
+local root = "/" .. fs.getDir( shell.getRunningProgram() ) .. "/"
 
-if not fs.exists "/blittle" then shell.run "pastebin get ujchRSnU /blittle" end
-os.loadAPI "blittle"
+if not fs.exists( root .. "blittle" ) then
+	shell.run( "pastebin get ujchRSnU " .. root .. "blittle" )
+end
+
+os.loadAPI( root .. "blittle" )
 local blittle = blittle
 
 if not require then shell.run( root .. "desktox/init.lua" ) end
@@ -47,7 +50,7 @@ local	redraw, shade, update, ease_in_quad,
 		draw_model, save_settings, align_number,
 		get_paste, populate_resolution_menu,
 		move_player
-local empty_func = function() end 
+local empty_func = function() end
 
 local version = "0.2.2-beta"
 
@@ -531,7 +534,7 @@ function parse_model( text, name )
 				res = res .. char
 			end
 		end
-		
+
 		model.characters[ i ] = res
 	end
 	--]]

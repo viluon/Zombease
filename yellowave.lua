@@ -3,8 +3,14 @@
 --	viluon's visual signature, improved approach
 --	Uses the BLittle API by Bomb Bloke
 
-if not fs.exists "blittle"  then shell.run( "pastebin get ujchRSnU blittle" ) end
-os.loadAPI "blittle"
+local root = "/" .. fs.getDir( shell.getRunningProgram() ) .. "/"
+
+if not fs.exists( root .. "blittle" ) then
+	shell.run( "pastebin get ujchRSnU " .. root .. "blittle" )
+end
+
+os.loadAPI( root .. "blittle" )
+local blittle = blittle
 
 local rnd = math.random
 
@@ -17,7 +23,6 @@ local mainWindow = window.create( oldTerm, 1, 1, w, h, false )
 
 term.setBackgroundColour( colours.black )
 term.clear()
-
 local renderBuffer = blittle.createWindow( mainWindow )
 term.redirect( renderBuffer )
 
@@ -309,7 +314,7 @@ end
 
 -- Compute
 
-loadInitialFrame( "/assets/frames/viluon.frm" )
+loadInitialFrame( root .. "assets/frames/viluon.frm" )
 
 xOffsetImage = w / 2 - ( biggestX / 2 ) / 2
 yOffsetImage = h / 2 - ( biggestY / 3 ) / 2

@@ -194,7 +194,7 @@ function buffer_methods:resize( width, height, background_colour, foreground_col
 			for _ = 0, self_width - width - 1 do
 				remove( self, line_offset )
 				n_self = n_self - 1
-			end			
+			end
 		end
 	end
 
@@ -806,7 +806,10 @@ function buffer_methods:get_window_interface( parent, x, y, width, height, visib
 	end
 
 	-- Retrieve information from parent
-	local cursor_blink = parent.getCursorBlink and parent.getCursorBlink() or false
+	local cursor_blink
+	pcall( function()
+		cursor_blink = parent.getCursorBlink and parent.getCursorBlink() or false
+	end )
 
 	local background_colour = parent.getBackgroundColour()
 	local text_colour = parent.getTextColour()
@@ -984,10 +987,20 @@ function buffer_methods:get_window_interface( parent, x, y, width, height, visib
 		return win
 	end
 
+	function win.getPaletteColor( ... )
+		return parent.getPaletteColor( ... )
+	end
+
+	function win.setPaletteColor( ... )
+		return parent.setPaletteColor( ... )
+	end
+
 	-- Proper language!
 	win.isColour            = win.isColor
 	win.setTextColour       = win.setTextColor
 	win.getTextColour       = win.getTextColor
+	win.setPaletteColour    = win.setPaletteColor
+	win.getPaletteColour    = win.getPaletteColor
 	win.setBackgroundColour = win.setBackgroundColor
 	win.getBackgroundColour = win.getBackgroundColor
 
@@ -1006,7 +1019,7 @@ function buffer_methods:scroll( lines, background_colour, foreground_colour, cha
 	local n_self = self.length
 	local width, height = self.width, self.height
 
-	local new_pixel = { 
+	local new_pixel = {
 		tonumber( background_colour ) or DEFAULT_BACKGROUND;
 		tonumber( foreground_colour ) or DEFAULT_FOREGROUND;
 		character                     or DEFAULT_CHARACTER;
@@ -1719,7 +1732,7 @@ function buffer_methods:shrink( target, x, y, start_x, start_y, end_x, end_y )
 	x      = x      or self.x1     or error( unable_to_set_optional_argument .. "'x': self.x1 is nil", 2 )
 	y      = y      or self.y1     or error( unable_to_set_optional_argument .. "'y': self.y1 is nil", 2 )
 
-	
+
 
 	return self
 end
