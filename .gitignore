@@ -5,3 +5,4 @@ wrapper.lua
 tmp
 json
 .noupdate
+*.sublime-workspace
