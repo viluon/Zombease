@@ -19,6 +19,8 @@ local blittle = blittle
 
 if not require then shell.run( root .. "desktox/init.lua" ) end
 
+_G.require = require
+
 local args = { ... }
 
 -- Dependencies
@@ -1290,7 +1292,7 @@ if launch then
 	local fn = loadstring( contents, root .. "main.lua" )
 	setfenv( fn, _G )
 
-	return fn( settings, terminal, terminal_scale )
+	return fn( settings, terminal, terminal_scale, root )
 
 elseif perform_update then
 	term.setCursorPos( 1, 1 )

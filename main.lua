@@ -10,6 +10,7 @@ local args = { ... }
 local settings = args[ 1 ]
 local terminal = args[ 2 ]
 local terminal_scale = args[ 3 ]
+local root = args[ 4 ]
 
 if not require or type( settings ) ~= "table" then
 	print( "wiLL kIll you But RUn mEnU.LUa FiRst" )
@@ -102,9 +103,6 @@ local next_wave_countdown = -math.huge
 
 --- Held keys and buttons
 local held = { mouse = {} }
-
---- Directory
-local root = "/"
 
 local world = bump.newWorld( 8 )
 local world_size = {
